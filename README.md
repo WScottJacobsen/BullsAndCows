@@ -1,4 +1,5 @@
 RESERVED REGISTERS:
+	
 	$s0 - Word that computer came up with, what you are trying to guess
 	
 	$s1 - User guess
