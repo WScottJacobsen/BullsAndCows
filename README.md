@@ -1,3 +1,8 @@
+RESERVED REGISTERS:
+	$s0 - Word that computer came up with, what you are trying to guess
+	$s1 - User guess
+	$s2 - Start time
+
 Topic
 As discussed in class, the topic for the team project this semester is the WORD version of the Bulls & Cows game.
 
