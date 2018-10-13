@@ -12,7 +12,7 @@ RESERVED REGISTERS:
 
 	$s5 - Cow count
 
-TODO: Get time working, do the rest of the project that isn't code
+TODO: Every part of the project that isn't the code
 
 Topic
 As discussed in class, the topic for the team project this semester is the WORD version of the Bulls & Cows game.
