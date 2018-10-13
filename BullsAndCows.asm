@@ -17,6 +17,7 @@
 	newline: .asciiz "\n"
 	winMsg: .asciiz "\nYou guessed the word correctly! It took you "
 	seconds: .asciiz " seconds."
+	magicNumber: .word 86400000	# Milliseconds in a day
 .text
 	lw	$a1, numWords		# Upperbound for random number generation
 	li	$v0, 42			# Syscall for generating random number
@@ -29,7 +30,13 @@
 					# At this point, the only register that needs to stay the same is $s0, which stores the word that was retrieved from the list of words
 	li	$v0, 30			# Get system time
 	syscall				# Start timer
-	move	$s2, $a1		# Store start time in $s2
+	lw	$t0, magicNumber	# Number to divide time by
+	div	$a0, $t0
+	mfhi	$s2			# $s2 now contains ms in day
+	li	$t0, 1000
+	div	$s2, $t0
+	mflo	$s2			# $s2 now contains seconds in day
+	
 takeInput:
 	li	$s4, 0			# Reset bull count
 	li	$s5, 0			# Reset cow count
@@ -125,12 +132,15 @@ continueCheck:
 	j	takeInput
 	
 win:
-	li	$v0, 30
-	syscall				# Get system time
-	sub	$s2, $a1, $s2		# Subtract from start time to get total time played
+	li	$v0, 30			# Get system time
+	syscall				# Start timer
+	lw	$t0, magicNumber	# Number to divide time by
+	div	$a0, $t0
+	mfhi	$t1			# $t1 now contains ms in day
 	li	$t0, 1000
-	div	$s2, $t0		# Divide by 1000, because time is stored in ms
-	mflo	$s2			# Store time in seconds in $s2
+	div	$t1, $t0
+	mflo	$t1			# $t1 now contains seconds in day
+	sub	$s2, $t1, $s2		# Get difference between start and end time, and store into $s2
 	li	$v0, 4
 	la	$a0, winMsg
 	syscall				# Print win text
