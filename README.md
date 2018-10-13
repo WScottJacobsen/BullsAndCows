@@ -6,6 +6,12 @@ RESERVED REGISTERS:
 	
 	$s2 - Start time
 
+	$s3 - Guess count
+
+	$s4 - Bull count
+
+	$s5 - Cow count
+
 Topic
 As discussed in class, the topic for the team project this semester is the WORD version of the Bulls & Cows game.
 

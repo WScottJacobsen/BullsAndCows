@@ -7,6 +7,16 @@
 	tooShortMsg: .asciiz "Your input was too short, please enter a 4 letter word\n"
 	repeatMsg: .asciiz "\nYour input contained repeat letters, please only input words without repeat letters\n"
 	invalidCharMsg: .asciiz "\nYour input contained characters other than A-Z, please only input capital letters\n"
+	guessCountTrail: .asciiz ".\t"
+	guessRepeat: .asciiz "Your guess: "
+	resultOutput: .asciiz "\tResult: "
+	bullText: .asciiz " bull"
+	joinText: .asciiz " and "
+	cowText: .asciiz " cow"
+	plural: .asciiz "s"
+	newline: .asciiz "\n"
+	winMsg: .asciiz "\nYou guessed the word correctly! It took you "
+	seconds: .asciiz " seconds."
 .text
 	lw	$a1, numWords		# Upperbound for random number generation
 	li	$v0, 42			# Syscall for generating random number
@@ -19,8 +29,10 @@
 					# At this point, the only register that needs to stay the same is $s0, which stores the word that was retrieved from the list of words
 	li	$v0, 30			# Get system time
 	syscall				# Start timer
+	move	$s2, $a1		# Store start time in $s2
 takeInput:
-	move	$s2, $a0		# Store start time in $s2
+	li	$s4, 0			# Reset bull count
+	li	$s5, 0			# Reset cow count
 	li 	$v0, 4			# Syscall for printing string
 	la 	$a0, inputPrompt	# Load the string to be printed into $a0
 	syscall				# Print string
@@ -36,30 +48,111 @@ takeInput:
 	li	$t0, -2
 	beq	$s1, $t0, wrongChar	# If $s1 is -1, that means they input something other than A-Z
 	
-	li	$s3, 0
-	li	$s4, 0x00FFFFFF		# Mask to get first 3 chars
-	li	$s5, 24			# $s5 will store shift amount to get char in right position
-	li	$s6, 0xFF000000		# Mask to get first char
+	beq	$s0, $s1, win		# Jump to win if they guessed the word correctly
+	
+	li	$t5, 0
+	li	$t6, 0x00FFFFFF		# Mask to get first 3 chars
+	li	$t7, 24			# $t7 will store shift amount to get char in right position
+	li	$t8, 0xFF000000		# Mask to get first char
 checkUnique:
-	and	$a0, $s1, $s4		# Apply mask to get string w/o first char in to $a0
-	and	$a1, $s1, $s6		# Apply mask to get first char in to $a1
-	srlv	$a1, $a1, $s5		# Get char in first byte slot
+	and	$a0, $s1, $t6		# Apply mask to get string w/o first char in to $a0
+	and	$a1, $s1, $t8		# Apply mask to get first char in to $a1
+	srlv	$a1, $a1, $t7		# Get char in first byte slot
 	jal 	charInWord		# Check if first char is repeated
-	or	$s3, $s3, $v0		# Make sure there isn't a repeat for any of the chars
-	bne	$s3, $zero, repeatChar	# If $s3 is ever not 0, that means there was a repeat, and therefore the input is invalid
-	srl	$s4, $s4, 8		# Move on to next char to check
-	subi	$s5, $s5, 8		# Move on to next char to check
-	srl	$s6, $s6, 8		# Move on to next char to check
-	bne	$s4, $zero, checkUnique	# Check all but last digit
+	or	$t5, $t5, $v0		# Make sure there isn't a repeat for any of the chars
+	bne	$t5, $zero, repeatChar	# If $t5 is ever not 0, that means there was a repeat, and therefore the input is invalid
+	srl	$t6, $t6, 8		# Move on to next char to check
+	subi	$t7, $t7, 8		# Move on to next char to check
+	srl	$t8, $t8, 8		# Move on to next char to check
+	bne	$t6, $zero, checkUnique	# Check all but last digit
 
 	li	$t0, 0x53544F50		# $t0 will contain "STOP"
 	beq	$t0, $s1, giveUp	# If "STOP" is input, give up
-					# Get number of bulls and cows
-	li	$a0, 666999
+					# Input was valid, get number of bulls and cows
+	addi	$s3, $s3, 1		# Increment guess counter
+	li	$t5, 0xFF		# Mask for extracting char
+	move	$t6, $s1		# Store copy of user input into $t6
+	li	$t7, 0			# Store digit position
+getScore:
+	and	$a1, $t6, $t5		# Put char that was extracted into $a1
+	move	$t8, $a1		# Store copy of char
+	move	$a0, $s0		# Compare against computer chosen string
+	jal charInWord
+	bne	$v0, $zero, match	# If this branches, the char being checked is in the answer string
+continueCheck:
+	srl	$t6, $t6, 8		# Move on to next char
+	addi	$t7, $t7, 8		# Keep track of digit position
+	bne	$t6, $zero, getScore	# Check all chars
+					# Print result text
+	li	$v0, 4
+	la	$a0, newline
+	syscall				# Print newline
 	li	$v0, 1
-	syscall
+	move	$a0, $s3
+	syscall				# Print guess count
+	li	$v0, 4
+	la	$a0, guessCountTrail
+	syscall				# Print "." following guess count
+	la	$a0, guessRepeat	
+	syscall				# Print "Your guess: "
+	move	$a0, $s1
+	jal	printWord		# Print user guess
+	li	$v0, 4
+	la	$a0, resultOutput
+	syscall				# Print "Result: "
+	li	$v0, 1
+	move	$a0, $s5
+	syscall				# Print cow count
+	li	$v0, 4
+	la	$a0, cowText
+	syscall				# Print " cow"
+	move	$a0, $s5
+	jal	printPlural		# Print "s" if necessary
+	li	$v0, 4
+	la	$a0, joinText
+	syscall				# Print " and "
+	li	$v0, 1
+	move	$a0, $s4
+	syscall				# Print bull count
+	li	$v0, 4
+	la	$a0, bullText
+	syscall				# Print " bull"
+	move	$a0, $s4
+	jal	printPlural		# Print "s" if necessary'
+	li	$v0, 4
+	la	$a0, newline
+	syscall				# Print newline
+	j	takeInput
+	
+win:
+	li	$v0, 30
+	syscall				# Get system time
+	sub	$s2, $a1, $s2		# Subtract from start time to get total time played
+	li	$t0, 1000
+	div	$s2, $t0		# Divide by 1000, because time is stored in ms
+	mflo	$s2			# Store time in seconds in $s2
+	li	$v0, 4
+	la	$a0, winMsg
+	syscall				# Print win text
+	li	$v0, 1
+	move	$a0, $s2
+	syscall				# Print time spent in seconds
+	li	$v0, 4
+	la	$a0, seconds
+	syscall				# Print "seconds."
 	li	$v0, 10
-	syscall
+	syscall				# Exit
+	
+match:
+	sllv	$t8, $t8, $t7		# Get extracted digit in original position
+	sllv	$t9, $t5, $t7		# Get mask in right position for digit extraction
+	and	$t4, $s0, $t9		# Get digit out of computer generated string
+	beq	$t4, $t8, bull		# If digits are the same, it is a bull
+	addi	$s5, $s5, 1		# Add 1 to cow count
+	j	continueCheck		# Continue checking
+bull:
+	addi	$s4, $s4, 1		# Add 1 to bull count
+	j	continueCheck		# Continue checking
 	
 repeatChar:
 	la	$a0, repeatMsg
@@ -140,3 +233,14 @@ checkChar:
 inWord:
 	li	$v0, 1
 	jr 	$ra
+	
+printPlural:				# Print "s" if $a0 isn't 1
+	li	$t0, 1
+	beq	$a0, $t0, singular	# If $a0 is not equal to 1, jump to singular
+	li	$v0, 4
+	la	$a0, plural
+	syscall
+	jr	$ra
+singular:
+	jr	$ra
+	
